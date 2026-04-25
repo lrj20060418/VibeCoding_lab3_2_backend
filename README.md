@@ -9,7 +9,7 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8000
 ```
 
 验证：
@@ -17,42 +17,40 @@ python -m uvicorn main:app --reload --port 8000
 - 打开 `http://127.0.0.1:8000/health`  
   期望返回：`{"ok": true}`
 
-## V2：规划 CRUD（SQLite 持久化）
+## V2：规划管理 API（SQLite 持久化）
 
-### 规划接口
+后端会在 `backend/app.db` 创建 SQLite 数据库文件（可用环境变量 `LAB3_DB_PATH` 自定义路径）。
 
-- `POST /api/plans` 创建规划
-- `GET /api/plans` 规划列表
-- `GET /api/plans/{plan_id}` 规划详情
-- `PUT /api/plans/{plan_id}` 更新规划（部分更新）
+### 接口
 
-### 快速测试（示例）
+- `POST /api/plans`
+  - body 示例：
+    ```json
+    {"title":"周末出游","date":"2026-04-30","budget":500,"people_count":2,"preferences":"喜欢自然景点"}
+    ```
+- `GET /api/plans`
+- `GET /api/plans/{plan_id}`
+- `PUT /api/plans/{plan_id}`
+  - body 示例（仅传需要更新的字段）：
+    ```json
+    {"budget":800,"preferences":"尽量少走路"}
+    ```
 
-创建：
+### 验收点（持久化）
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/plans ^
-  -H "Content-Type: application/json" ^
-  -d "{\"title\":\"周末出行\",\"date\":\"2026-04-26\",\"budget\":500,\"people_count\":2,\"preferences\":\"轻松一点\"}"
-```
+1. `POST /api/plans` 创建一条规划
+2. 重启后端（停止再启动）
+3. `GET /api/plans` 仍能看到刚才创建的规划
 
-列表：
+## V4：地点管理 API（加入规划、列表、删除）
 
-```bash
-curl http://127.0.0.1:8000/api/plans
-```
+### 接口
 
-详情（把 PLAN_ID 替换成上一步返回的 id）：
-
-```bash
-curl http://127.0.0.1:8000/api/plans/PLAN_ID
-```
-
-更新（部分字段即可）：
-
-```bash
-curl -X PUT http://127.0.0.1:8000/api/plans/PLAN_ID ^
-  -H "Content-Type: application/json" ^
-  -d "{\"budget\":800}"
-```
+- `GET /api/plans/{plan_id}/places`
+- `POST /api/plans/{plan_id}/places`
+  - body 示例：
+    ```json
+    {"name":"选中地点","address":"上海市…","lng":121.47,"lat":31.23,"adcode":"310000"}
+    ```
+- `DELETE /api/plans/{plan_id}/places/{place_id}`
 
