@@ -3,11 +3,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import get_conn, init_db
 from schemas import PlaceCreate, PlaceOut, PlanCreate, PlanOut, PlanUpdate
+from weather import WeatherKeyMissing, WeatherUpstreamError, get_live_weather_by_adcode
 
 app = FastAPI(title="Lab 3-2 Backend", version="0.1.0")
 
@@ -30,6 +32,8 @@ def health():
 
 @app.on_event("startup")
 def _startup():
+    # Load local secrets from backend/.env (do not commit)
+    load_dotenv()
     init_db()
 
 
@@ -193,4 +197,51 @@ def delete_place(plan_id: str, place_id: str):
     if cur.rowcount == 0:
         raise HTTPException(status_code=404, detail="Place not found")
     return {"ok": True}
+
+
+@app.get("/api/weather/live")
+def weather_live(adcode: str):
+    """
+    统一天气服务（后端调用高德天气，前端不直连第三方）。
+    """
+    try:
+        return {"weather": get_live_weather_by_adcode(adcode)}
+    except WeatherKeyMissing as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except WeatherUpstreamError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@app.get("/api/plans/{plan_id}/weather/live")
+def plan_weather_live(plan_id: str):
+    """
+    返回当前规划内地点的实时天气（按 place_id 聚合）。
+    只对有 adcode 的地点查询；缺失 adcode 的地点会被跳过并返回原因。
+    """
+    with get_conn() as conn:
+        plan = conn.execute("SELECT id FROM plans WHERE id = ?", (plan_id,)).fetchone()
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+
+        rows = conn.execute(
+            "SELECT id, adcode FROM places WHERE plan_id = ? ORDER BY sort_index ASC, datetime(created_at) ASC",
+            (plan_id,),
+        ).fetchall()
+
+    result: dict[str, object] = {}
+    errors: dict[str, str] = {}
+    for r in rows:
+        place_id = r["id"]
+        adcode = (r["adcode"] or "").strip()
+        if not adcode:
+            errors[place_id] = "Missing adcode"
+            continue
+        try:
+            result[place_id] = get_live_weather_by_adcode(adcode)
+        except Exception as e:
+            errors[place_id] = str(e)
+
+    return {"weathers": result, "errors": errors}
 

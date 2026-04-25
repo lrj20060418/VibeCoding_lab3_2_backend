@@ -54,3 +54,27 @@ uvicorn main:app --reload --port 8000
     ```
 - `DELETE /api/plans/{plan_id}/places/{place_id}`
 
+## V5：天气展示（后端统一调用高德天气）
+
+### 配置
+
+把高德 Web 服务 Key 放到后端本地文件 `backend/.env`（不要写进前端，也不要提交到仓库）：
+
+1. 复制示例文件：
+
+```bash
+cd backend
+copy .env.example .env
+```
+
+2. 编辑 `backend/.env`，填写你的 Key：
+
+`AMAP_WEBSERVICE_KEY=你的Web服务Key`
+
+### 接口
+
+- `GET /api/weather/live?adcode=xxxxxx`
+  - 返回：`{ "weather": { status, temperature, wind_direction, wind_power, humidity, report_time, adcode } }`
+- `GET /api/plans/{plan_id}/weather/live`
+  - 返回：`{ "weathers": { [place_id]: weather }, "errors": { [place_id]: "reason" } }`
+
