@@ -78,3 +78,29 @@ copy .env.example .env
 - `GET /api/plans/{plan_id}/weather/live`
   - 返回：`{ "weathers": { [place_id]: weather }, "errors": { [place_id]: "reason" } }`
 
+## V6：行程安排 + AI 辅助总结
+
+### 行程接口
+
+- `GET /api/plans/{plan_id}/itinerary`
+- `PUT /api/plans/{plan_id}/itinerary`
+  - body 示例：
+    ```json
+    {"items":[{"place_id":"...","time_slot":"morning","sort_index":0}]}
+    ```
+
+### AI 总结配置（写在 backend/.env，本地文件不提交）
+
+在 `backend/.env` 中加入：
+
+```env
+LLM_API_KEY=你的Key
+LLM_BASE_URL=你的chat/completions地址
+LLM_MODEL=你的模型名
+```
+
+### AI 总结接口
+
+- `POST /api/plans/{plan_id}/ai/summary`
+  - body 示例：`{"style":"normal"}`
+  - 返回：`{"summary":"..."}`

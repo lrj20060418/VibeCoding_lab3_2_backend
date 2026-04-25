@@ -54,3 +54,30 @@ class PlaceOut(BaseModel):
     sort_index: int
     created_at: str
 
+
+class ItineraryItemIn(BaseModel):
+    place_id: str = Field(..., min_length=1)
+    time_slot: str = Field(..., description="morning|afternoon|evening")
+    sort_index: int = Field(default=0, ge=0)
+
+
+class ItineraryItemOut(BaseModel):
+    id: str
+    plan_id: str
+    place_id: str
+    time_slot: str
+    sort_index: int
+    created_at: str
+
+
+class ItineraryUpdate(BaseModel):
+    items: list[ItineraryItemIn]
+
+
+class AiSummaryRequest(BaseModel):
+    style: Optional[str] = Field(default=None, description="short|normal|detailed")
+
+
+class AiSummaryResponse(BaseModel):
+    summary: str
+

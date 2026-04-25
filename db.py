@@ -55,6 +55,24 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_places_plan_id ON places(plan_id);"
         )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS itinerary_items (
+              id TEXT PRIMARY KEY,
+              plan_id TEXT NOT NULL,
+              place_id TEXT NOT NULL,
+              time_slot TEXT NOT NULL,
+              sort_index INTEGER NOT NULL DEFAULT 0,
+              created_at TEXT NOT NULL,
+              FOREIGN KEY(plan_id) REFERENCES plans(id) ON DELETE CASCADE,
+              FOREIGN KEY(place_id) REFERENCES places(id) ON DELETE CASCADE
+            );
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_itinerary_plan_id ON itinerary_items(plan_id);"
+        )
         conn.commit()
 
 
