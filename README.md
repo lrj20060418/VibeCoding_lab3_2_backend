@@ -104,3 +104,17 @@ LLM_MODEL=你的模型名
 - `POST /api/plans/{plan_id}/ai/summary`
   - body 示例：`{"style":"normal"}`
   - 返回：`{"summary":"..."}`
+
+## 扩展：规划导出 + 规则检查
+
+### 导出（Markdown / JSON）
+
+- `GET /api/plans/{plan_id}/export?format=md`
+  - 返回：`{ "format": "md", "content": "# ...markdown..." }`
+- `GET /api/plans/{plan_id}/export?format=json`
+  - 返回：`{ "format": "json", "content": { plan, places, itinerary, weather_by_place } }`
+
+### 规则检查（预算 / 安排完整性 / 雨天风险）
+
+- `GET /api/plans/{plan_id}/checks`
+  - 返回：`{ "issues": [ { level, code, title, detail } ] }`

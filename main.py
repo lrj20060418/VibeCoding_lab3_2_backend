@@ -8,6 +8,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import get_conn, init_db
+from checks import build_checks
+from exporter import build_plan_export_json, build_plan_export_md
 from llm import LlmConfigMissing, LlmUpstreamError, chat_complete
 from schemas import (
     AiSummaryRequest,
@@ -434,4 +436,68 @@ def ai_summary(plan_id: str, payload: AiSummaryRequest):
         raise HTTPException(status_code=500, detail=str(e)) from e
     except LlmUpstreamError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+def _load_plan_bundle(plan_id: str):
+    with get_conn() as conn:
+        plan_row = conn.execute("SELECT * FROM plans WHERE id = ?", (plan_id,)).fetchone()
+        if not plan_row:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        plan = dict(plan_row)
+
+        places_rows = conn.execute(
+            """
+            SELECT * FROM places
+             WHERE plan_id = ?
+             ORDER BY sort_index ASC, datetime(created_at) ASC
+            """,
+            (plan_id,),
+        ).fetchall()
+        places = [dict(r) for r in places_rows]
+
+        itin_rows = conn.execute(
+            """
+            SELECT * FROM itinerary_items
+             WHERE plan_id = ?
+             ORDER BY time_slot ASC, sort_index ASC, datetime(created_at) ASC
+            """,
+            (plan_id,),
+        ).fetchall()
+        itinerary = [dict(r) for r in itin_rows]
+
+    weather_by_place: dict[str, object] = {}
+    for p in places:
+        adcode = (p.get("adcode") or "").strip()
+        if not adcode:
+            continue
+        try:
+            weather_by_place[p["id"]] = get_live_weather_by_adcode(adcode)
+        except Exception:
+            continue
+
+    return plan, places, itinerary, weather_by_place
+
+
+@app.get("/api/plans/{plan_id}/checks")
+def plan_checks(plan_id: str):
+    plan, places, itinerary, weather_by_place = _load_plan_bundle(plan_id)
+    return {"issues": build_checks(plan=plan, places=places, itinerary=itinerary, weather_by_place=weather_by_place)}
+
+
+@app.get("/api/plans/{plan_id}/export")
+def plan_export(plan_id: str, format: str = "md"):
+    plan, places, itinerary, weather_by_place = _load_plan_bundle(plan_id)
+
+    fmt = (format or "md").lower().strip()
+    if fmt not in {"md", "json"}:
+        raise HTTPException(status_code=400, detail="format must be md or json")
+
+    if fmt == "json":
+        obj = build_plan_export_json(
+            plan=plan, places=places, itinerary=itinerary, weather_by_place=weather_by_place
+        )
+        return {"format": "json", "content": obj}
+
+    md = build_plan_export_md(plan=plan, places=places, itinerary=itinerary, weather_by_place=weather_by_place)
+    return {"format": "md", "content": md}
 
